@@ -17,7 +17,6 @@ export default function HomePage() {
   const [roomCode, setRoomCode] = useState("")
   const [hostName, setHostName] = useState("")
   const [joinName, setJoinName] = useState("")
-  const [showSetupInstructions, setShowSetupInstructions] = useState(false)
   const { isAuthenticated, saveTokens, clearTokens } = useSpotifyAuth()
   const { toast } = useToast()
 
@@ -31,7 +30,6 @@ export default function HomePage() {
       if (error === "spotify_auth_failed" || error === "token_failed") {
         // Clear any invalid tokens
         clearTokens()
-        setShowSetupInstructions(true)
         toast({
           title: "Spotify Setup Required",
           description: "Please check the setup instructions below",
@@ -54,7 +52,6 @@ export default function HomePage() {
         title: "Spotify Connected!",
         description: "You can now create rooms with music playback.",
       })
-      setShowSetupInstructions(false)
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname)
     }
@@ -72,7 +69,6 @@ export default function HomePage() {
             description: "Please check the Spotify setup instructions",
             variant: "destructive",
           })
-          setShowSetupInstructions(true)
         }
         return
       }
@@ -104,7 +100,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        {showSetupInstructions && (
+        {/* {showSetupInstructions && (
           <div className="mb-8">
             <div className="flex items-center justify-center gap-2 mb-4">
               <AlertCircle className="h-5 w-5 text-orange-500" />
@@ -112,7 +108,7 @@ export default function HomePage() {
             </div>
             <SetupInstructions />
           </div>
-        )}
+        )} */}
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {/* Host Room Card */}
@@ -217,11 +213,11 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="mt-8 text-center">
+        {/* <div className="mt-8 text-center">
           <Button variant="outline" onClick={() => setShowSetupInstructions(!showSetupInstructions)}>
             {showSetupInstructions ? "Hide" : "Show"} Setup Instructions
           </Button>
-        </div>
+        </div> */}
       </div>
     </div>
   )
