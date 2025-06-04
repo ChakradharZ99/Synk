@@ -93,7 +93,7 @@ export default function HomePage() {
               <Music className="h-8 w-8 text-purple-600 dark:text-purple-400" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">MusicQueue</h1>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Synk</h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             Create collaborative music rooms where everyone can add songs and vote for their favorites. The most voted
             songs play next!
