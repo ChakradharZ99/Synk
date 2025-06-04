@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
 import { Play, Pause, SkipForward, Volume2, Loader2, ExternalLink } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -21,12 +20,7 @@ declare global {
   }
 }
 
-export function SpotifyWebPlayer({ 
-  accessToken, 
-  trackUri, 
-  onTrackEnd, 
-  isHost
-}: SpotifyWebPlayerProps) {
+export function SpotifyWebPlayer({ accessToken, trackUri, onTrackEnd, isHost }: SpotifyWebPlayerProps) {
   const [player, setPlayer] = useState<any>(null)
   const [deviceId, setDeviceId] = useState<string>("")
   const [isReady, setIsReady] = useState(false)
@@ -39,10 +33,13 @@ export function SpotifyWebPlayer({
   const [playbackError, setPlaybackError] = useState<string | null>(null)
   const { toast } = useToast()
   const sdkLoaded = useRef(false)
-  const playbackAttempted = useRef(false)
   const lastTrackUri = useRef<string | null>(null)
+  const onTrackEndRef = useRef(onTrackEnd)
 
-  // Load Spotify Web Playback SDK
+  useEffect(() => {
+    onTrackEndRef.current = onTrackEnd
+  }, [onTrackEnd])
+
   useEffect(() => {
     if (sdkLoaded.current) return
     sdkLoaded.current = true
@@ -55,85 +52,60 @@ export function SpotifyWebPlayer({
     window.onSpotifyWebPlaybackSDKReady = () => {
       const spotifyPlayer = new window.Spotify.Player({
         name: "MusicQueue Web Player",
-        getOAuthToken: (cb: (token: string) => void) => {
-          cb(accessToken)
-        },
+        getOAuthToken: (cb: (token: string) => void) => cb(accessToken),
         volume: 0.5,
       })
 
-      // Error handling
       spotifyPlayer.addListener("initialization_error", ({ message }: any) => {
-        console.error("Spotify Player initialization error:", message)
         setPlaybackError("Failed to initialize Spotify player")
-        toast({
-          title: "Spotify Player Error",
-          description: "Failed to initialize Spotify player",
-          variant: "destructive",
-        })
+        toast({ title: "Spotify Player Error", description: message, variant: "destructive" })
       })
 
       spotifyPlayer.addListener("authentication_error", ({ message }: any) => {
-        console.error("Spotify Player authentication error:", message)
         setPlaybackError("Authentication error")
-        toast({
-          title: "Authentication Error",
-          description: "Please reconnect to Spotify",
-          variant: "destructive",
-        })
+        toast({ title: "Authentication Error", description: message, variant: "destructive" })
       })
 
       spotifyPlayer.addListener("account_error", ({ message }: any) => {
-        console.error("Spotify Player account error:", message)
         setPlaybackError("Spotify Premium required")
-        toast({
-          title: "Account Error",
-          description: "Spotify Premium required for full playback",
-          variant: "destructive",
-        })
+        toast({ title: "Account Error", description: message, variant: "destructive" })
       })
 
-      // Ready
-      spotifyPlayer.addListener("ready", ({ device_id }: any) => {
-        console.log("Spotify Player ready with Device ID:", device_id)
+      spotifyPlayer.addListener("ready", async ({ device_id }: any) => {
         setDeviceId(device_id)
         setIsReady(true)
         setIsLoading(false)
-        toast({
-          title: "Spotify Player Ready",
-          description: "Full song playback is now available!",
-        })
+        try {
+          const vol = await spotifyPlayer.getVolume()
+          setVolume(Math.round(vol * 100))
+        } catch {}
+        toast({ title: "Spotify Player Ready", description: "Full song playback is now available!" })
       })
 
-      // Not Ready
-      spotifyPlayer.addListener("not_ready", ({ device_id }: any) => {
-        console.log("Spotify Player not ready with Device ID:", device_id)
+      spotifyPlayer.addListener("not_ready", () => {
         setIsReady(false)
       })
 
-      // Player state changed
       spotifyPlayer.addListener("player_state_changed", (state: any) => {
         if (!state) return
-
         setCurrentTrack(state.track_window.current_track)
         setIsPlaying(!state.paused)
-
-        // Always update position when we get a state update
         setPosition(state.position)
         setDuration(state.duration)
 
-        // Check if track ended
-        if (state.position === 0 && state.paused && currentTrack) {
+        const trackEnded =
+          state.paused &&
+          state.position >= state.duration - 2000 &&
+          currentTrack?.uri === state.track_window.current_track.uri
+
+        if (trackEnded) {
           console.log("Track ended, calling onTrackEnd")
-          onTrackEnd?.()
+          onTrackEndRef.current?.()
         }
       })
 
-      // Connect to the player
       spotifyPlayer.connect().then((success: boolean) => {
-        if (success) {
-          console.log("Successfully connected to Spotify Player")
-        } else {
-          console.error("Failed to connect to Spotify Player")
+        if (!success) {
           setPlaybackError("Failed to connect to Spotify")
           setIsLoading(false)
         }
@@ -147,42 +119,28 @@ export function SpotifyWebPlayer({
         player.disconnect()
       }
     }
-  }, [accessToken, toast, onTrackEnd])
+  }, [accessToken, toast])
 
-  // Add position timer to update progress bar
   useEffect(() => {
     if (!isPlaying) return
-
     const timer = setInterval(() => {
-      setPosition((prev) => {
-        // Don't exceed duration
-        if (prev >= duration) return prev
-        return prev + 1000 // Update every second (1000ms)
-      })
+      setPosition((prev) => (prev >= duration ? prev : prev + 1000))
     }, 1000)
-
     return () => clearInterval(timer)
   }, [isPlaying, duration])
 
-  // Play track when trackUri changes - ONLY FOR HOST
   useEffect(() => {
     if (!player || !deviceId || !trackUri || !isReady || !isHost) return
-
-    // Only attempt playback if track URI has changed
     if (trackUri === lastTrackUri.current) return
     lastTrackUri.current = trackUri
+    setPosition(0)
 
     const playTrack = async () => {
       try {
-        console.log("Attempting to play track:", trackUri)
         setPlaybackError(null)
-
-        // Transfer playback to our device and play the track
         const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
           method: "PUT",
-          body: JSON.stringify({
-            uris: [trackUri],
-          }),
+          body: JSON.stringify({ uris: [trackUri] }),
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
@@ -191,75 +149,54 @@ export function SpotifyWebPlayer({
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}))
-          console.error("Error playing track:", response.status, errorData)
-
           if (response.status === 404) {
-            setPlaybackError("Track not available in your region or requires Premium")
+            setPlaybackError("Track not available or requires Premium")
           } else {
             setPlaybackError(`Playback error: ${response.status}`)
           }
-
           toast({
             title: "Playback Error",
             description: "Failed to play track. Try opening in Spotify app.",
             variant: "destructive",
           })
-        } else {
-          console.log("Successfully started playback")
         }
       } catch (error) {
-        console.error("Error playing track:", error)
         setPlaybackError("Failed to play track")
-        toast({
-          title: "Playback Error",
-          description: "Failed to play track",
-          variant: "destructive",
-        })
+        toast({ title: "Playback Error", description: "Failed to play track", variant: "destructive" })
       }
     }
 
-    if (isHost) {
-      playTrack()
-    }
+    playTrack()
   }, [trackUri, player, deviceId, accessToken, isReady, isHost, toast])
 
   const togglePlayback = async () => {
-    if (!player || !isHost) return
-
-    try {
-      await player.togglePlay()
-    } catch (error) {
-      console.error("Error toggling playback:", error)
+    if (player && isHost) {
+      try {
+        await player.togglePlay()
+      } catch (error) {
+        console.error("Error toggling playback:", error)
+      }
     }
   }
 
   const skipTrack = async () => {
-    if (!player || !isHost) return
-
-    try {
-      onTrackEnd?.()
-    } catch (error) {
-      console.error("Error skipping track:", error)
+    if (isHost) {
+      onTrackEndRef.current?.()
     }
   }
 
   const handleVolumeChange = async (value: number[]) => {
     const newVolume = value[0]
     setVolume(newVolume)
-
-    if (player) {
-      try {
-        await player.setVolume(newVolume / 100)
-      } catch (error) {
-        console.error("Error setting volume:", error)
-      }
+    try {
+      if (player) await player.setVolume(newVolume / 100)
+    } catch (error) {
+      console.error("Error setting volume:", error)
     }
   }
 
   const openInSpotify = (spotifyUrl?: string) => {
-    if (spotifyUrl) {
-      window.open(spotifyUrl, "_blank")
-    }
+    if (spotifyUrl) window.open(spotifyUrl, "_blank")
   }
 
   const formatTime = (ms: number) => {
@@ -288,7 +225,7 @@ export function SpotifyWebPlayer({
             <div className="flex items-center justify-center gap-3 mb-3">
               {currentTrack.album?.images?.[0] && (
                 <img
-                  src={currentTrack.album.images[0].url || "/placeholder.svg"}
+                  src={currentTrack.album.images[0].url}
                   alt={currentTrack.name}
                   className="w-12 h-12 rounded"
                 />
@@ -334,7 +271,7 @@ export function SpotifyWebPlayer({
         <div className="flex items-center gap-4">
           {currentTrack.album?.images?.[0] && (
             <img
-              src={currentTrack.album.images[0].url || "/placeholder.svg"}
+              src={currentTrack.album.images[0].url}
               alt={currentTrack.name}
               className="w-16 h-16 rounded"
             />
@@ -347,7 +284,6 @@ export function SpotifyWebPlayer({
             </p>
 
             <div className="mt-2 space-y-2">
-              {/* Progress bar */}
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
                 <div
                   className="bg-green-500 h-1 rounded-full transition-all duration-300"
@@ -355,15 +291,12 @@ export function SpotifyWebPlayer({
                 />
               </div>
 
-              {/* Time display */}
               <div className="flex justify-between text-xs text-gray-500">
                 <span>{formatTime(position)}</span>
                 <span>{formatTime(duration)}</span>
               </div>
 
-              {/* Controls */}
               <div className="flex items-center gap-2">
-                {/* Only show playback controls for host */}
                 {isHost ? (
                   <>
                     <Button size="sm" variant="ghost" onClick={togglePlayback}>
@@ -377,14 +310,16 @@ export function SpotifyWebPlayer({
                   <p className="text-xs text-gray-500">Host controls playback</p>
                 )}
 
-                {/* Everyone gets volume control */}
                 <div className="flex items-center gap-2 ml-auto">
                   <Volume2 className="h-4 w-4" />
                   <Slider value={[volume]} onValueChange={handleVolumeChange} max={100} step={1} className="w-20" />
                 </div>
 
-                {/* Open in Spotify button */}
-                <Button size="sm" variant="ghost" onClick={() => openInSpotify(currentTrack.external_urls?.spotify)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => openInSpotify(currentTrack.external_urls?.spotify)}
+                >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
               </div>
