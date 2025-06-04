@@ -32,7 +32,6 @@ import type { Song } from "@/lib/websocket"
 import { ConnectionStatus } from "@/components/connection-status"
 import { RoomStats } from "@/components/room-stats"
 import { SpotifyWebPlayer } from "@/components/spotify-web-player"
-import { ListeningStatus } from "@/components/listening-status"
 
 export default function RoomPage() {
   const params = useParams()
@@ -519,9 +518,6 @@ export default function RoomPage() {
 
             {/* Room Stats */}
             <RoomStats roomState={roomState} />
-
-            {/* Listening Status */}
-            <ListeningStatus isSpotifyConnected={isAuthenticated} isHost={isHost} isPremium={isPremium} />
 
             {/* Room Controls */}
             {isHost && (
