@@ -105,7 +105,6 @@ export class Room {
 
   clearQueue(): void {
     this.queue = [];
-    this.currentSong = null;
   }
 
   skipCurrentSong(): Song | null {
