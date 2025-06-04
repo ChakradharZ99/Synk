@@ -108,15 +108,17 @@ export class Room {
   }
 
   skipCurrentSong(): Song | null {
+    const skipped = this.currentSong;
     if (this.queue.length > 0) {
       // Move the highest voted song to current song
       const nextSong = this.queue.shift();
       this.currentSong = nextSong || null;
       this.sortQueue();
-      return nextSong || null;
     }
-    this.currentSong = null;
-    return null;
+    else{
+      this.currentSong = null;
+    }
+    return skipped;
   }
 
   toJSON(): RoomJSON {
