@@ -8,12 +8,12 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "MusicQueue - Collaborative Music Rooms",
+  title: "Synk - Collaborative Music Rooms",
   description: "Create collaborative music rooms where everyone can add songs and vote for their favorites",
   keywords: ["music", "collaborative", "playlist", "voting", "spotify", "queue"],
-  authors: [{ name: "MusicQueue" }],
+  authors: [{ name: "Synk" }],
   openGraph: {
-    title: "MusicQueue - Collaborative Music Rooms",
+    title: "Synk - Collaborative Music Rooms",
     description: "Create collaborative music rooms where everyone can add songs and vote for their favorites",
     type: "website",
   },

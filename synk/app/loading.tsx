@@ -11,7 +11,7 @@ export default function Loading() {
               <Music className="h-8 w-8 text-purple-600 dark:text-purple-400" />
             </div>
           </div>
-          <CardTitle className="text-2xl">MusicQueue</CardTitle>
+          <CardTitle className="text-2xl">Synk</CardTitle>
         </CardHeader>
         <CardContent className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />

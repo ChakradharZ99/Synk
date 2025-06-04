@@ -53,7 +53,7 @@ export function SpotifyWebPlayer({ accessToken, trackUri, onTrackEnd, isHost }: 
 
     window.onSpotifyWebPlaybackSDKReady = () => {
       const spotifyPlayer = new window.Spotify.Player({
-        name: "MusicQueue Web Player",
+        name: "Synk Web Player",
         getOAuthToken: (cb: (token: string) => void) => cb(accessToken),
         volume: 0.5,
       })
