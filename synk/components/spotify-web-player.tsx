@@ -86,11 +86,6 @@ export function SpotifyWebPlayer({ accessToken, trackUri, onTrackEnd, isHost }: 
         setIsReady(false)
       })
 
-      spotifyPlayer.addListener("track_end", () => {
-        console.log("Track ended naturally, calling onTrackEnd");
-        onTrackEndRef.current?.(); //test
-      });
-
       spotifyPlayer.addListener("player_state_changed", (state: any) => {
         if (!state) return;
       
