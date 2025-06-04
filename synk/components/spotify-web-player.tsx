@@ -35,6 +35,8 @@ export function SpotifyWebPlayer({ accessToken, trackUri, onTrackEnd, isHost }: 
   const sdkLoaded = useRef(false)
   const lastTrackUri = useRef<string | null>(null)
   const onTrackEndRef = useRef(onTrackEnd)
+  const lastHandledTrackId = useRef<string | null>(null)
+  const hasTriggeredEnd = useRef(false)
 
   useEffect(() => {
     onTrackEndRef.current = onTrackEnd
@@ -93,6 +95,28 @@ export function SpotifyWebPlayer({ accessToken, trackUri, onTrackEnd, isHost }: 
         setIsPlaying(!state.paused);
         setPosition(state.position);
         setDuration(state.duration);
+
+        // Reset flags when a new track starts
+        if (state.position === 0 && !state.paused) {
+          hasTriggeredEnd.current = false;
+          lastHandledTrackId.current = null;
+        }
+        // Only trigger onTrackEnd if:
+        // 1. Track is paused
+        // 2. Position is at start
+        // 3. We have a current track
+        // 4. We have previous tracks
+        // 5. We haven't triggered end for this track yet
+        if (state.paused && 
+            state.position === 0 && 
+            state.track_window.current_track && 
+            state.track_window.previous_tracks.length > 0 &&
+            !hasTriggeredEnd.current) {
+          console.log('Track end condition met for track:', state.track_window.current_track.id);
+          hasTriggeredEnd.current = true;
+          lastHandledTrackId.current = state.track_window.current_track.id;
+          onTrackEndRef.current?.();
+        }
       });
 
       spotifyPlayer.connect().then((success: boolean) => {
@@ -171,7 +195,9 @@ export function SpotifyWebPlayer({ accessToken, trackUri, onTrackEnd, isHost }: 
   }
 
   const skipTrack = async () => {
-    if (isHost) {
+    if (isHost && !hasTriggeredEnd.current) {
+      hasTriggeredEnd.current = true;
+      lastHandledTrackId.current = currentTrack?.id || null;
       onTrackEndRef.current?.()
     }
   }

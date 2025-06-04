@@ -370,7 +370,10 @@ export default function RoomPage() {
                       <SpotifyWebPlayer
                         accessToken={tokens.access_token}
                         trackUri={currentTrackUri}
-                        onTrackEnd={skipSong}
+                        onTrackEnd={() => {
+                          console.log("Track finished playing!");
+                          skipSong();
+                        }}
                         isHost={isHost}
                       />
                     </div>
