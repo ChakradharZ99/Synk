@@ -112,7 +112,7 @@ export class Room {
     if (this.queue.length > 0) {
       // Move the highest voted song to current song
       const nextSong = this.queue.shift();
-      this.currentSong = nextSong;
+      this.currentSong = nextSong || null;
       this.sortQueue();
       return nextSong || null;
     }
