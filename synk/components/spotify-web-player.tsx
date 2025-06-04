@@ -86,25 +86,18 @@ export function SpotifyWebPlayer({ accessToken, trackUri, onTrackEnd, isHost }: 
         setIsReady(false)
       })
 
+      spotifyPlayer.addListener("track_end", () => {
+        console.log("Track ended naturally, calling onTrackEnd");
+        onTrackEndRef.current?.();
+      });
+
       spotifyPlayer.addListener("player_state_changed", (state: any) => {
         if (!state) return;
-      
-        const currentUri = state.track_window.current_track?.uri;
-        const ended =
-          state.paused &&
-          state.position === 0 &&
-          currentTrack?.uri &&
-          currentTrack?.uri !== currentUri;
       
         setCurrentTrack(state.track_window.current_track);
         setIsPlaying(!state.paused);
         setPosition(state.position);
         setDuration(state.duration);
-      
-        if (ended) {
-          console.log("Detected track end, calling onTrackEnd");
-          onTrackEndRef.current?.();
-        }
       });
 
       spotifyPlayer.connect().then((success: boolean) => {
