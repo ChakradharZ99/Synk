@@ -126,6 +126,19 @@ export function useWebSocket() {
       })
     })
 
+    client.on("room_ended", (data) => {
+      console.log("📨 Received room_ended:", data)
+      toast({
+        title: "Session Ended",
+        description: data.message || "The host has ended the session",
+        variant: "destructive",
+      })
+      // Clear room state and redirect
+      setRoomState(null)
+      setCurrentUser(null)
+      // The redirect will be handled by the component
+    })
+
     handlersSetup.current = true
   }, [toast]) // Remove currentUser from dependencies to avoid infinite loop
 
@@ -201,6 +214,16 @@ export function useWebSocket() {
     wsClient.current.clearQueue()
   }, [])
 
+  const endRoom = useCallback(() => {
+    console.log("🛑 Ending room")
+    wsClient.current.endRoom()
+  }, [])
+
+  const leaveRoom = useCallback(() => {
+    console.log("🚪 Leaving room")
+    wsClient.current.leaveRoom()
+  }, [])
+
   const isHost = currentUser && roomState ? roomState.hostId === currentUser.id : false
   const hasVoted = useCallback(
     (songId: string) => {
@@ -225,5 +248,7 @@ export function useWebSocket() {
     voteSong,
     skipSong,
     clearQueue,
+    endRoom,
+    leaveRoom,
   }
 }

@@ -9,7 +9,9 @@ import {
   VoteSongMessage,
   SkipSongMessage,
   ClearQueueMessage,
-  GetRoomStateMessage
+  GetRoomStateMessage,
+  EndRoomMessage,
+  LeaveRoomMessage
 } from './types.js';
 
 export class WebSocketHandler {
@@ -77,6 +79,18 @@ export class WebSocketHandler {
             }
             break;
           
+          case 'end_room':
+            if (userId && roomId) {
+              this.handleEndRoom(ws, message as EndRoomMessage, roomId);
+            }
+            break;
+          
+          case 'leave_room':
+            if (userId && roomId) {
+              this.handleLeaveRoom(ws, message as LeaveRoomMessage, userId, roomId);
+            }
+            break;
+          
           case 'ping':
             // Handle heartbeat ping
             ws.send(JSON.stringify({ type: 'pong' }));
@@ -98,9 +112,12 @@ export class WebSocketHandler {
     });
 
     ws.on('close', () => {
-      console.log('WebSocket connection closed');
+      console.log('🔌 WebSocket connection closed');
       if (userId && roomId) {
+        console.log(`🔌 Connection closed for user ${userId} in room ${roomId}`);
         this.handleUserLeave(userId, roomId);
+      } else {
+        console.log('🔌 Connection closed before user was assigned to a room');
       }
     });
   }
@@ -114,6 +131,16 @@ export class WebSocketHandler {
     const userId = uuidv4();
     const roomId = roomCode;
 
+    // Check if room already exists
+    if (this.rooms.has(roomId)) {
+      console.log(`⚠️ Room ${roomId} already exists`);
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Room already exists'
+      }));
+      return;
+    }
+
     // Create new room
     const room = new Room(roomId, userId, userName);
     this.rooms.set(roomId, room);
@@ -121,7 +148,8 @@ export class WebSocketHandler {
 
     setIds(userId, roomId);
 
-    console.log(`Room ${roomId} created by ${userName}`);
+    console.log(`✅ Room ${roomId} created by ${userName} (userId: ${userId})`);
+    console.log(`📊 Current server stats: ${this.rooms.size} rooms, ${this.userConnections.size} users`);
 
     ws.send(JSON.stringify({
       type: 'room_created',
@@ -297,20 +325,58 @@ export class WebSocketHandler {
     }));
   }
 
+  private handleEndRoom(ws: WebSocket, message: EndRoomMessage, roomId: string): void {
+    const room = this.rooms.get(roomId);
+    const userId = Array.from(this.userConnections.entries())
+      .find(([_, ws_conn]) => ws_conn === ws)?.[0];
+
+    if (!room || !userId || room.hostId !== userId) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Only host can end the room'
+      }));
+      return;
+    }
+
+    console.log(`Host ended room ${roomId}`);
+
+    // Notify all users that the room has ended
+    this.broadcastToRoom(roomId, {
+      type: 'room_ended',
+      message: 'Host has ended the session'
+    });
+
+    // Remove all connections and delete the room
+    room.users.forEach(user => {
+      this.userConnections.delete(user.id);
+    });
+    this.rooms.delete(roomId);
+  }
+
+  private handleLeaveRoom(ws: WebSocket, message: LeaveRoomMessage, userId: string, roomId: string): void {
+    // For non-hosts, this is just a regular leave
+    this.handleUserLeave(userId, roomId);
+  }
+
   private handleUserLeave(userId: string, roomId: string): void {
     const room = this.rooms.get(roomId);
-    if (!room) return;
+    if (!room) {
+      console.log(`⚠️ Attempted to remove user ${userId} from non-existent room ${roomId}`);
+      return;
+    }
 
     const user = room.users.get(userId);
+    const wasHost = user?.isHost || false;
     const result = room.removeUser(userId);
     this.userConnections.delete(userId);
 
-    console.log(`${user?.name} left room ${roomId}`);
+    console.log(`👋 ${user?.name || 'Unknown user'} left room ${roomId} (${wasHost ? 'was host' : 'was participant'})`);
+    console.log(`📊 Room ${roomId} now has ${room.users.size} users`);
 
     if (room.users.size === 0) {
       // Delete empty room
       this.rooms.delete(roomId);
-      console.log(`Room ${roomId} deleted (empty)`);
+      console.log(`🗑️ Room ${roomId} deleted (empty). Total rooms: ${this.rooms.size}`);
     } else {
       // Broadcast user left
       this.broadcastToRoom(roomId, {
@@ -320,6 +386,10 @@ export class WebSocketHandler {
         newHost: result.newHost,
         room: room.toJSON()
       });
+      
+      if (result.newHost) {
+        console.log(`👑 New host assigned in room ${roomId}: ${result.newHost}`);
+      }
     }
   }
 

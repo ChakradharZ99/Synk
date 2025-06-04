@@ -88,3 +88,11 @@ export interface PingMessage extends WebSocketMessage {
 export interface PongMessage extends WebSocketMessage {
   type: 'pong';
 }
+
+export interface EndRoomMessage extends WebSocketMessage {
+  type: 'end_room';
+}
+
+export interface LeaveRoomMessage extends WebSocketMessage {
+  type: 'leave_room';
+}

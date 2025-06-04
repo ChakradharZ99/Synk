@@ -56,6 +56,8 @@ export default function RoomPage() {
     voteSong,
     skipSong,
     clearQueue,
+    endRoom,
+    leaveRoom,
   } = useWebSocket()
 
   const { isAuthenticated, getValidAccessToken, tokens, isLoading } = useSpotifyAuth()
@@ -65,8 +67,16 @@ export default function RoomPage() {
   const [isSearching, setIsSearching] = useState(false)
   const [hasJoinedRoom, setHasJoinedRoom] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
+  const [roomWasEstablished, setRoomWasEstablished] = useState(false)
   const joinAttempted = useRef(false)
   const lastSongId = useRef<string | null>(null)
+
+  // Track when room is successfully established
+  useEffect(() => {
+    if (roomState && hasJoinedRoom && !roomWasEstablished) {
+      setRoomWasEstablished(true)
+    }
+  }, [roomState, hasJoinedRoom, roomWasEstablished])
 
   // Check if user is authenticated, if not redirect to home (but wait for loading to complete)
   useEffect(() => {
@@ -131,6 +141,26 @@ export default function RoomPage() {
       lastSongId.current = roomState?.currentSong?.id || null
     }
   }, [roomState?.currentSong?.id])
+
+  // Redirect to home when room ends or is no longer available
+  useEffect(() => {
+    // Only redirect if we've successfully established a room before and now it's gone
+    if (roomWasEstablished && isConnected && !roomState) {
+      const timeoutId = setTimeout(() => {
+        // Double-check that we're still in the same state after a brief delay
+        if (roomWasEstablished && isConnected && !roomState) {
+          toast({
+            title: "Room Unavailable", 
+            description: "This room is no longer available",
+            variant: "destructive",
+          })
+          router.push("/")
+        }
+      }, 1000) // Wait 1 second to avoid race conditions
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [roomWasEstablished, isConnected, roomState, router, toast])
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query)
@@ -204,6 +234,19 @@ export default function RoomPage() {
 
   const openInSpotify = (spotifyUrl: string) => {
     window.open(spotifyUrl, "_blank")
+  }
+
+  const handleEndSession = () => {
+    if (isHost) {
+      if (confirm("Are you sure you want to end this session? This will permanently close the room for all participants.")) {
+        endRoom()
+      }
+    } else {
+      if (confirm("Are you sure you want to leave this session?")) {
+        leaveRoom()
+        router.push("/")
+      }
+    }
   }
 
   // Convert Spotify URL to URI for Web Playback SDK
@@ -297,8 +340,8 @@ export default function RoomPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => router.push("/")}>
-              <ArrowLeft className="h-4 w-4" />
+            <Button variant="ghost" size="icon" onClick={handleEndSession} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+              {isHost ? <Crown className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
             </Button>
             <div>
               <div className="flex items-center gap-3">
@@ -310,10 +353,15 @@ export default function RoomPage() {
               </p>
             </div>
           </div>
-          <Button variant="outline" onClick={copyRoomCode}>
-            <Copy className="h-4 w-4 mr-2" />
-            Copy Code
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={copyRoomCode}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copy Code
+            </Button>
+            <Button variant="destructive" onClick={handleEndSession}>
+              {isHost ? "End Session" : "Leave Session"}
+            </Button>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">

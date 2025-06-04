@@ -252,6 +252,18 @@ export class WebSocketClient {
       type: "get_room_state",
     })
   }
+
+  endRoom() {
+    this.send({
+      type: "end_room",
+    })
+  }
+
+  leaveRoom() {
+    this.send({
+      type: "leave_room",
+    })
+  }
 }
 
 // Singleton instance
