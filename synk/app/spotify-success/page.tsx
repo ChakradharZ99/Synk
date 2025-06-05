@@ -24,13 +24,24 @@ export default function SpotifySuccessPage() {
         expires_in: Number.parseInt(expiresIn),
       })
 
-      // Redirect back to create room with Spotify auth
+      // Use window.location for more reliable production redirect
       setTimeout(() => {
-        router.push("/?spotify_connected=true")
+        // Try router.push first, fallback to window.location
+        try {
+          router.push("/?spotify_connected=true")
+        } catch (error) {
+          console.error("Router push failed, using window.location:", error)
+          window.location.href = "/?spotify_connected=true"
+        }
+        
+        // Backup redirect after additional delay
+        setTimeout(() => {
+          window.location.href = "/?spotify_connected=true"
+        }, 1000)
       }, 2000)
     } else {
-      // Redirect back with error if tokens are missing
-      router.push("/?error=missing_tokens")
+      // Use window.location for error redirect too
+      window.location.href = "/?error=missing_tokens"
     }
   }, [searchParams, router, saveTokens])
 
@@ -48,6 +59,9 @@ export default function SpotifySuccessPage() {
             Successfully connected to Spotify. Redirecting you back...
           </p>
           <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+          <p className="text-xs text-gray-500 mt-2">
+            If you're not redirected automatically, <a href="/?spotify_connected=true" className="text-blue-500 underline">click here</a>
+          </p>
         </CardContent>
       </Card>
     </div>
