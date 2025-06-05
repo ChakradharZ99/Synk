@@ -240,11 +240,18 @@ export default function RoomPage() {
     if (isHost) {
       if (confirm("Are you sure you want to end this session? This will permanently close the room for all participants.")) {
         endRoom()
+        router.push("/")
+        setTimeout(() => {
+          window.location.reload()
+        }, 500)
       }
     } else {
       if (confirm("Are you sure you want to leave this session?")) {
         leaveRoom()
         router.push("/")
+        setTimeout(() => {
+          window.location.reload()
+        }, 500)
       }
     }
   }
